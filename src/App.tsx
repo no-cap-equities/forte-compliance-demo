@@ -5,31 +5,49 @@ import { LevelSelector } from './components/LevelSelector'
 import { KYCVerification } from './components/KYCVerification'
 import { useWallet } from './hooks/useWallet'
 import { useSiwe } from './hooks/useSiwe'
-import type { SiweData } from './types/siwe'
 
 function AppContent() {
   const { address, isConnected } = useWallet();
-  const { signMessage, isSigningMessage, error: siweError } = useSiwe();
+  const { signIn, isLoading, error: siweError } = useSiwe();
   const [selectedLevel, setSelectedLevel] = useState(1);
   const [isVerifying, setIsVerifying] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
   const [showSigningPrompt, setShowSigningPrompt] = useState(false);
-  const [siweData, setSiweData] = useState<SiweData | undefined>(undefined);
+  const [siweData, setSiweData] = useState<any | undefined>(undefined);
+  const [signatureError, setSignatureError] = useState<string | null>(null);
 
   const handleStartVerification = async () => {
+    setSignatureError(null);
     setShowSigningPrompt(true);
   };
 
   const handleProceedWithVerification = async () => {
+    if (!address) {
+      setSignatureError("Wallet address not available");
+      return;
+    }
+    
     try {
-      const signedData = await signMessage();
-      if (signedData) {
-        setSiweData(signedData);
+      setSignatureError(null);
+      
+      const result = await signIn(address);
+      
+      if (result.success && result.signature && result.siweMessage) {
+        setSiweData({
+          message: result.siweMessage,
+          signature: result.signature,
+          address
+        });
         setShowSigningPrompt(false);
         setIsVerifying(true);
+      } else if (result.message) {
+        setSignatureError(result.message);
+      } else if (siweError) {
+        setSignatureError(siweError.message);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error signing message:', error);
+      setSignatureError(error.message || 'Failed to sign message');
     }
   };
 
@@ -41,6 +59,7 @@ function AppContent() {
 
   const handleCancelSigning = () => {
     setShowSigningPrompt(false);
+    setSignatureError(null);
   };
 
   return (
@@ -119,9 +138,15 @@ function AppContent() {
               To verify your wallet ownership, please sign a message using your wallet. This signature will be used to authenticate your KYC verification request.
             </p>
             
-            {siweError && (
+            {(signatureError || (siweError && siweError.message)) && (
               <div className="bg-red-50 border border-red-200 p-4 rounded-md mb-6">
-                <p className="text-red-600">{siweError}</p>
+                <p className="text-red-600 font-medium mb-1">Error</p>
+                <p className="text-red-600">{signatureError || (siweError && siweError.message)}</p>
+                <div className="mt-2">
+                  <p className="text-sm text-red-500">
+                    Please make sure your wallet is connected to the correct network (Base Sepolia).
+                  </p>
+                </div>
               </div>
             )}
             
@@ -134,10 +159,10 @@ function AppContent() {
               </button>
               <button
                 onClick={handleProceedWithVerification}
-                disabled={isSigningMessage}
-                className={`px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium ${isSigningMessage ? 'opacity-50 cursor-not-allowed' : ''}`}
+                disabled={isLoading}
+                className={`px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
-                {isSigningMessage ? (
+                {isLoading ? (
                   <div className="flex items-center">
                     <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
                     Signing...

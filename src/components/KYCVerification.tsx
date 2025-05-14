@@ -1,12 +1,17 @@
 import { useState, useEffect } from 'react';
 import { getAccessToken, initiateKYCVerification } from '../lib/api';
-import type { SiweData } from '../types/siwe';
+
+interface SiweDataProps {
+  message: string;
+  signature: string;
+  address: string;
+}
 
 interface KYCVerificationProps {
   walletAddress: string;
   level?: number;
   onComplete?: () => void;
-  siweData?: SiweData;
+  siweData?: SiweDataProps;
 }
 
 export const KYCVerification = ({ 
@@ -18,6 +23,7 @@ export const KYCVerification = ({
   const [isLoading, setIsLoading] = useState(false);
   const [widgetData, setWidgetData] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [errorDetails, setErrorDetails] = useState<string | null>(null);
 
   useEffect(() => {
     if (!walletAddress || !siweData) return;
@@ -26,6 +32,7 @@ export const KYCVerification = ({
       try {
         setIsLoading(true);
         setError(null);
+        setErrorDetails(null);
         
         // Step 1: Get access token
         const accessToken = await getAccessToken();
@@ -44,9 +51,14 @@ export const KYCVerification = ({
         if (widgetDataResponse) {
           initializeWidget(widgetDataResponse);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('Error in KYC verification flow:', err);
-        setError('Failed to initialize KYC verification. Please try again.');
+        setError(err.message || 'Failed to initialize KYC verification');
+        setErrorDetails(
+          typeof err === 'object' ? 
+            JSON.stringify(err, Object.getOwnPropertyNames(err), 2) : 
+            String(err)
+        );
       } finally {
         setIsLoading(false);
       }
@@ -95,7 +107,15 @@ export const KYCVerification = ({
     return (
       <div className="p-6 bg-red-50 border border-red-200 rounded-lg">
         <h3 className="text-red-600 font-medium mb-2">Verification Error</h3>
-        <p className="text-red-500">{error}</p>
+        <p className="text-red-500 mb-2">{error}</p>
+        
+        {errorDetails && (
+          <div className="mt-4">
+            <h4 className="text-sm font-medium text-red-600 mb-1">Error Details</h4>
+            <pre className="bg-red-100 p-2 rounded text-xs overflow-auto max-h-40">{errorDetails}</pre>
+          </div>
+        )}
+        
         <button 
           onClick={() => window.location.reload()} 
           className="mt-4 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"

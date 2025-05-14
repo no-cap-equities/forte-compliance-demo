@@ -1,6 +1,11 @@
 import axios from 'axios';
 import { FORTE_API, FORTE_CREDENTIALS } from './config';
-import type { SiweData } from '../types/siwe';
+
+interface SiweData {
+  message: string;
+  signature: string;
+  address: string;
+}
 
 interface AccessTokenResponse {
   data: {
@@ -44,7 +49,7 @@ export const initiateKYCVerification = async (
   siweData?: SiweData
 ): Promise<string> => {
   try {
-    const payload = {
+    const payload: any = {
       action: {
         type: "OCC_RULES_ENGINE_V2",
         level
@@ -60,31 +65,31 @@ export const initiateKYCVerification = async (
 
     // Add SIWE data if available
     if (siweData) {
-      Object.assign(payload, {
-        auth: {
-          type: "SIWE",
-          data: {
-            message: siweData.message,
-            signature: siweData.signature,
-            nonce: siweData.nonce
-          }
+      payload.auth = {
+        type: "SIWE",
+        data: {
+          message: siweData.message,
+          signature: siweData.signature
         }
-      });
+      };
     }
+    
+    console.log('Sending payload to API:', JSON.stringify(payload, null, 2));
     
     const response = await axios.post<KYCResponse>(
       `${FORTE_API.BASE_URL}${FORTE_API.KYC_ENDPOINT}`,
       payload,
       {
         headers: {
-          Authorization: `Bearer ${accessToken}`
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
         }
       }
     );
     
     return response.data.data.widget_data;
-  } catch (error) {
-    console.error('Error initiating KYC verification:', error);
-    throw new Error('Failed to initiate KYC verification');
+  } catch (error: any) {
+    console.error('Error initiating KYC verification:', error.response?.data || error.message);
+    throw new Error(error.response?.data?.message || 'Failed to initiate KYC verification');
   }
 }; 

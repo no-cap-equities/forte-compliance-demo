@@ -1,70 +1,125 @@
-import { useState } from 'react';
-import { useAccount, useSignMessage } from 'wagmi';
-import { SiweMessage } from 'siwe';
-import type { SiweData } from '../types/siwe';
+// import { useState } from 'react';
+// import { useAccount, useSignMessage } from 'wagmi';
+// import { SiweMessage } from 'siwe';
+// import type { SiweData } from '../types/siwe';
 
-export const useSiwe = () => {
-  const { address, chainId } = useAccount();
-  const { signMessageAsync } = useSignMessage();
-  const [isSigningMessage, setIsSigningMessage] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  
-  const createSiweMessage = async (nonce: string, domain: string, uri: string) => {
-    if (!address || !chainId) return null;
-    
-    const message = new SiweMessage({
-      domain,
-      address,
-      statement: 'Sign in with Ethereum to Forte KYC Verification',
-      uri,
-      version: '1',
-      chainId,
-      nonce
-    });
-    
-    return message.prepareMessage();
-  };
-  
-  const signMessage = async (): Promise<SiweData | null> => {
+// export const useSiwe = () => {
+//   const { address, chainId } = useAccount();
+//   const { signMessageAsync } = useSignMessage();
+//   const [isSigningMessage, setIsSigningMessage] = useState(false);
+//   const [error, setError] = useState<string | null>(null);
+
+//   const signMessage = async (): Promise<SiweData | null> => {
+//     try {
+//       setIsSigningMessage(true);
+//       setError(null);
+
+//       if (!address || !chainId) {
+//         throw new Error('Wallet not connected');
+//       }
+
+//       // Generate a simple nonce
+//       const nonce = Math.random().toString(36).substring(2, 10);
+
+//       // Create a simple message that doesn't rely on the SiweMessage class
+//       const domain = window.location.host;
+//       const origin = window.location.origin;
+
+//       const message = `${domain} wants you to sign in with your Ethereum account:
+// ${address}
+
+// I accept the Terms of Service: ${origin}/tos
+// URI: ${origin}
+// Version: 1
+// Chain ID: ${chainId}
+// Nonce: ${nonce}
+// Issued At: ${new Date().toISOString()}`;
+
+//       // Sign the message
+//       const signature = await signMessageAsync({ message });
+
+//       // Return the full data needed for verification
+//       return {
+//         message,
+//         signature,
+//         nonce,
+//         address
+//       };
+//     } catch (err: any) {
+//       console.error('Error signing message:', err);
+//       setError(err.message || 'Failed to sign message');
+//       return null;
+//     } finally {
+//       setIsSigningMessage(false);
+//     }
+//   };
+
+//   return {
+//     signMessage,
+//     isSigningMessage,
+//     error
+//   };
+// }; 
+
+'use client';
+
+import { useState } from 'react';
+import { useSignMessage } from 'wagmi';
+import { prepareSiweMessage } from '../lib/siwe';
+
+interface UseSiweResult {
+  signIn: (address: string) => Promise<{ 
+    success: boolean; 
+    message?: string; 
+    signature?: string; 
+    siweMessage?: string;
+  }>;
+  isLoading: boolean;
+  error: Error | null;
+}
+
+/**
+ * Custom hook to handle SIWE signing process
+ */
+export function useSiwe(): UseSiweResult {
+  const [error, setError] = useState<Error | null>(null);
+  const { signMessageAsync, isPending } = useSignMessage();
+
+  /**
+   * Signs a message using the user's wallet
+   */
+  const signIn = async (address: string) => {
     try {
-      setIsSigningMessage(true);
       setError(null);
       
-      if (!address || !chainId) {
-        throw new Error('Wallet not connected');
-      }
+      // Create and prepare the SIWE message
+      const { message, preparedMessage } = prepareSiweMessage(address);
       
-      // Create a random nonce
-      const nonce = Math.floor(Math.random() * 1000000).toString();
-      const domain = window.location.host;
-      const uri = window.location.origin;
+      // Request signature from the wallet
+      const signature = await signMessageAsync({ 
+        message: preparedMessage,
+      });
       
-      // Create the SIWE message
-      const message = await createSiweMessage(nonce, domain, uri);
-      if (!message) throw new Error('Failed to create message');
-      
-      // Sign the message
-      const signature = await signMessageAsync({ message });
-      
-      // Return the full data needed for verification
       return {
-        message,
+        success: true,
         signature,
-        nonce,
-        address
+        siweMessage: message.toMessage(),
       };
-    } catch (err: any) {
-      console.error('Error signing message:', err);
-      setError(err.message || 'Failed to sign message');
-      return null;
-    } finally {
-      setIsSigningMessage(false);
+    } catch (err) {
+      console.error('Error during SIWE signing:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to sign message';
+      setError(new Error(errorMessage));
+      
+      return {
+        success: false,
+        message: errorMessage,
+      };
     }
   };
-  
+
   return {
-    signMessage,
-    isSigningMessage,
-    error
+    signIn,
+    isLoading: isPending,
+    error,
   };
-}; 
+} 
