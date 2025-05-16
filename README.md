@@ -2,6 +2,9 @@
 
 This is a modern React application that demonstrates the integration of the Forte Compliance SDK for KYC onboarding. The application showcases the complete flow of user verification, including wallet connection, verification level selection, and processing the KYC verification.
 
+## Demo Video
+https://youtu.be/ANR3m4A23_g
+
 ## Features
 
 - Connect to Ethereum wallets using Wagmi
