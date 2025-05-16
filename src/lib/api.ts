@@ -1,5 +1,6 @@
 import axios from 'axios';
-import { FORTE_API, FORTE_CREDENTIALS } from './config';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
 interface SiweData {
   message: string;
@@ -23,17 +24,13 @@ interface KYCResponse {
   };
 }
 
-// Get OAuth2 access token
+// Get OAuth2 access token from our backend
 export const getAccessToken = async (): Promise<string> => {
   try {
     const response = await axios.post<AccessTokenResponse>(
-      `${FORTE_API.BASE_URL}${FORTE_API.AUTH_ENDPOINT}`,
-      {
-        client_id: FORTE_CREDENTIALS.CLIENT_ID,
-        client_secret: FORTE_CREDENTIALS.CLIENT_SECRET
-      }
+      `${API_BASE_URL}/auth/token`
     );
-    
+
     return response.data.data.access;
   } catch (error) {
     console.error('Error getting access token:', error);
@@ -41,52 +38,22 @@ export const getAccessToken = async (): Promise<string> => {
   }
 };
 
-// Initiate KYC verification request
+// Initiate KYC verification request through our backend
 export const initiateKYCVerification = async (
-  accessToken: string,
   walletAddress: string,
   level: number = 3,
   siweData?: SiweData
 ): Promise<string> => {
   try {
-    const payload: any = {
-      action: {
-        type: "OCC_RULES_ENGINE_V2",
-        level
-      },
-      customer: {
-        wallet: {
-          blockchain: "base_sepolia",
-          address: walletAddress
-        },
-        external_id: walletAddress
-      }
-    };
-
-    // Add SIWE data if available
-    if (siweData) {
-      payload.auth = {
-        type: "SIWE",
-        data: {
-          message: siweData.message,
-          signature: siweData.signature
-        }
-      };
-    }
-    
-    console.log('Sending payload to API:', JSON.stringify(payload, null, 2));
-    
     const response = await axios.post<KYCResponse>(
-      `${FORTE_API.BASE_URL}${FORTE_API.KYC_ENDPOINT}`,
-      payload,
+      `${API_BASE_URL}/kyc/verify`,
       {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        }
+        walletAddress,
+        level,
+        // siweData
       }
     );
-    
+
     return response.data.data.widget_data;
   } catch (error: any) {
     console.error('Error initiating KYC verification:', error.response?.data || error.message);

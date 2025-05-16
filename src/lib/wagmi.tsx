@@ -25,11 +25,13 @@ const baseSepoliaChain = baseSepolia || {
   contracts: {},
 }
 
-// Configure wagmi client
+// Configure wagmi client with error handling
 export const config = createConfig({
   chains: [baseSepoliaChain, base],
   connectors: [
-    injected()
+    injected({
+      shimDisconnect: true,
+    })
   ],
   transports: {
     [baseSepoliaChain.id]: http(BLOCKCHAIN_CONFIG.RPC_URL),
@@ -37,10 +39,17 @@ export const config = createConfig({
   },
 })
 
-// Create a react-query client
-const queryClient = new QueryClient()
+// Create a react-query client with error handling
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+})
 
-// Export provider wrapper
+// Export provider wrapper with error boundary
 export function WagmiProvider({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>

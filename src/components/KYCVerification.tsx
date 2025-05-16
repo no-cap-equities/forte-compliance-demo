@@ -14,9 +14,9 @@ interface KYCVerificationProps {
   siweData?: SiweDataProps;
 }
 
-export const KYCVerification = ({ 
-  walletAddress, 
-  level = 3, 
+export const KYCVerification = ({
+  walletAddress,
+  level = 3,
   onComplete,
   siweData
 }: KYCVerificationProps) => {
@@ -27,26 +27,21 @@ export const KYCVerification = ({
 
   useEffect(() => {
     if (!walletAddress || !siweData) return;
-    
+
     const initiateVerification = async () => {
       try {
         setIsLoading(true);
         setError(null);
         setErrorDetails(null);
         
-        // Step 1: Get access token
-        const accessToken = await getAccessToken();
-        
-        // Step 2: Initiate KYC verification with SIWE data
         const widgetDataResponse = await initiateKYCVerification(
-          accessToken,
           walletAddress,
           level,
           siweData
         );
-        
+
         setWidgetData(widgetDataResponse);
-        
+
         // Initialize widget if widget data is available
         if (widgetDataResponse) {
           initializeWidget(widgetDataResponse);
@@ -55,27 +50,27 @@ export const KYCVerification = ({
         console.error('Error in KYC verification flow:', err);
         setError(err.message || 'Failed to initialize KYC verification');
         setErrorDetails(
-          typeof err === 'object' ? 
-            JSON.stringify(err, Object.getOwnPropertyNames(err), 2) : 
+          typeof err === 'object' ?
+            JSON.stringify(err, Object.getOwnPropertyNames(err), 2) :
             String(err)
         );
       } finally {
         setIsLoading(false);
       }
     };
-    
+
     initiateVerification();
   }, [walletAddress, level, siweData]);
 
   const initializeWidget = (widgetData: string) => {
     // This is a placeholder for the actual widget initialization
     // In a real implementation, you would use the Forte widget SDK
-    
+
     // Simulating widget container setup
     const container = document.getElementById('forte-kyc-widget');
     if (container) {
       container.innerHTML = '<div class="p-4 bg-gray-100 rounded-lg">KYC Widget Placeholder</div>';
-      
+
       // Register event handlers for widget events
       // In a real implementation, you would register actual event handlers
       window.addEventListener('WIDGET_EVENT', handleWidgetEvent);
@@ -84,7 +79,7 @@ export const KYCVerification = ({
 
   const handleWidgetEvent = (event: any) => {
     console.log('Widget event received:', event);
-    
+
     // Handle different widget events
     if (event.type === 'KYC_COMPLETE') {
       // KYC completed successfully
@@ -108,16 +103,16 @@ export const KYCVerification = ({
       <div className="p-6 bg-red-50 border border-red-200 rounded-lg">
         <h3 className="text-red-600 font-medium mb-2">Verification Error</h3>
         <p className="text-red-500 mb-2">{error}</p>
-        
+
         {errorDetails && (
           <div className="mt-4">
             <h4 className="text-sm font-medium text-red-600 mb-1">Error Details</h4>
             <pre className="bg-red-100 p-2 rounded text-xs overflow-auto max-h-40">{errorDetails}</pre>
           </div>
         )}
-        
-        <button 
-          onClick={() => window.location.reload()} 
+
+        <button
+          onClick={() => window.location.reload()}
           className="mt-4 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
         >
           Try Again
@@ -133,7 +128,7 @@ export const KYCVerification = ({
           <h2 className="text-xl font-semibold text-gray-800">KYC Verification</h2>
           <p className="text-gray-600 mt-1">Complete verification to access Level {level} features</p>
         </div>
-        
+
         <div id="forte-kyc-widget" className="p-6">
           {!widgetData && (
             <div className="flex flex-col items-center justify-center p-6">
