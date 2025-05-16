@@ -16,7 +16,7 @@ interface AccessTokenResponse {
   };
 }
 
-interface KYCResponse {
+export interface KYCResponse {
   data: {
     flow: string;
     error_code: string | null;
@@ -43,7 +43,7 @@ export const initiateKYCVerification = async (
   walletAddress: string,
   level: number = 3,
   siweData?: SiweData
-): Promise<string> => {
+): Promise<any> => {
   try {
     const response = await axios.post<KYCResponse>(
       `${API_BASE_URL}/kyc/verify`,
@@ -54,7 +54,7 @@ export const initiateKYCVerification = async (
       }
     );
 
-    return response.data.data.widget_data;
+    return response.data.data;
   } catch (error: any) {
     console.error('Error initiating KYC verification:', error.response?.data || error.message);
     throw new Error(error.response?.data?.message || 'Failed to initiate KYC verification');

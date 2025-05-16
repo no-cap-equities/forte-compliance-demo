@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getAccessToken, initiateKYCVerification } from '../lib/api';
+import { initiateKYCVerification, type KYCResponse } from '../lib/api';
 
 interface SiweDataProps {
   message: string;
@@ -14,6 +14,16 @@ interface KYCVerificationProps {
   siweData?: SiweDataProps;
 }
 
+// Add type for the window object to include the Forte widget
+declare global {
+  interface Window {
+    initFortePaymentsWidget?: (config: {
+      containerId: string;
+      data: any;
+    }) => void;
+  }
+}
+
 export const KYCVerification = ({
   walletAddress,
   level = 3,
@@ -21,7 +31,7 @@ export const KYCVerification = ({
   siweData
 }: KYCVerificationProps) => {
   const [isLoading, setIsLoading] = useState(false);
-  const [widgetData, setWidgetData] = useState<string | null>(null);
+  const [widgetData, setWidgetData] = useState<any | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
 
@@ -39,6 +49,14 @@ export const KYCVerification = ({
           level,
           siweData
         );
+
+        // Validate the response data
+        if (!widgetDataResponse || typeof widgetDataResponse !== 'object') {
+          throw new Error('Invalid widget data received from server');
+        }
+
+        // Log the data for debugging
+        console.log('Widget data received:', widgetDataResponse);
 
         setWidgetData(widgetDataResponse);
 
@@ -62,30 +80,69 @@ export const KYCVerification = ({
     initiateVerification();
   }, [walletAddress, level, siweData]);
 
-  const initializeWidget = (widgetData: string) => {
-    // This is a placeholder for the actual widget initialization
-    // In a real implementation, you would use the Forte widget SDK
-
-    // Simulating widget container setup
+  const initializeWidget = (widgetData: any) => {
     const container = document.getElementById('forte-kyc-widget');
-    if (container) {
-      container.innerHTML = '<div class="p-4 bg-gray-100 rounded-lg">KYC Widget Placeholder</div>';
-
-      // Register event handlers for widget events
-      // In a real implementation, you would register actual event handlers
-      window.addEventListener('WIDGET_EVENT', handleWidgetEvent);
+    if (!container) {
+      console.error('Widget container not found');
+      return;
     }
-  };
 
-  const handleWidgetEvent = (event: any) => {
-    console.log('Widget event received:', event);
+    // Clear any existing content
+    container.innerHTML = '';
 
-    // Handle different widget events
-    if (event.type === 'KYC_COMPLETE') {
-      // KYC completed successfully
-      if (onComplete) {
-        onComplete();
+    // Validate widget data before initialization
+    try {
+      // Ensure the data is properly structured
+      if (!widgetData || typeof widgetData !== 'object') {
+        throw new Error('Invalid widget data structure');
       }
+
+      // Log the data being passed to the widget
+      console.log('Initializing widget with data:', widgetData);
+
+      // Initialize the widget using the Forte SDK
+      const initWidget = () => {
+        if (window.initFortePaymentsWidget) {
+          try {
+            window.initFortePaymentsWidget({
+              containerId: 'forte-kyc-widget',
+              data: widgetData
+            });
+
+            // Add event listener for widget events
+            window.addEventListener('forte-widget-event', (event: any) => {
+              console.log('Forte widget event:', event.detail);
+              
+              // Handle different widget events
+              switch (event.detail.type) {
+                case 'verification_complete':
+                  if (onComplete) {
+                    onComplete();
+                  }
+                  break;
+                case 'verification_error':
+                  setError(event.detail.message || 'Verification failed');
+                  break;
+                default:
+                  console.log('Unhandled widget event:', event.detail);
+              }
+            });
+          } catch (initError) {
+            console.error('Error initializing widget:', initError);
+            setError('Failed to initialize verification widget');
+            setErrorDetails(initError instanceof Error ? initError.message : String(initError));
+          }
+        } else {
+          // If widget is not loaded yet, retry after a short delay
+          setTimeout(initWidget, 100);
+        }
+      };
+
+      initWidget();
+    } catch (error) {
+      console.error('Error in widget initialization:', error);
+      setError('Failed to initialize verification widget');
+      setErrorDetails(error instanceof Error ? error.message : String(error));
     }
   };
 
